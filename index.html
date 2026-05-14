@@ -13,72 +13,45 @@
             width: 300px;
             height: 300px;
             display: flex;
-            align-items: flex-end; /* Lo empuja "al suelo" del contenedor */
-            justify-content: flex-end; /* Lo empuja a la derecha */
+            align-items: flex-end; 
+            justify-content: flex-end; 
         }
 
         #mark {
-            width: 256px;   /* El tamaño real de tu dibujo */
+            width: 256px; 
             height: 256px;
             background-size: contain;
             background-repeat: no-repeat;
             background-position: center;
             cursor: pointer;
             
-            /* MARK DEFAULT: MarkOjosAbiertos */
+            /* MARK DEFAULT */
             background-image: url('assets/MarkOjosAbiertos.png');
 
-            /* EFECTOS VISUALES: 
-               - Lo bajamos un poco por defecto para simular que sale del suelo.
-               - Suavizamos el movimiento de la reacción. */
+            /* Lo mantenemos pegado al suelo */
             transform: translateY(20px); 
-            transition: transform 0.2s ease-out, filter 0.2s;
+            transition: transform 0.2s ease-out;
         }
 
-/* --- ANIMACIÓN DE PARPADEO RÁPIDO --- */
-.idle-parpadeo {
-    /* Mantenemos los 6 segundos de ciclo para que no esté parpadeando todo el rato */
-    animation: loopParpadeo 6s infinite;
-}
+        /* --- ANIMACIÓN DE PARPADEO RÁPIDO --- */
+        .idle-parpadeo {
+            animation: loopParpadeo 6s infinite;
+        }
 
-@keyframes loopParpadeo {
-    /* Del 0% al 94% Mark simplemente observa (Ojos Abiertos) */
-    0%, 94%, 100% { 
-        background-image: url('assets/MarkOjosAbiertos.png'); 
-    }
-    
-    /* El parpadeo ocurre solo en el último 6% del tiempo */
-    95% { 
-        background-image: url('assets/MarkOjosPaAbiertos.png'); 
-    }
-    
-    96% { 
-        background-image: url('assets/MarkOjosPaCerrados.png'); 
-    }
-    
-    97% { 
-        background-image: url('assets/MarkOjosCerrados.png'); 
-    }
-    
-    98% { 
-        background-image: url('assets/MarkOjosPaCerrados.png'); 
-    }
-    
-    99% { 
-        background-image: url('assets/MarkOjosPaAbiertos.png'); 
-    }
-}
+        @keyframes loopParpadeo {
+            0%, 94%, 100% { background-image: url('assets/MarkOjosAbiertos.png'); }
+            95% { background-image: url('assets/MarkOjosPaAbiertos.png'); }
+            96% { background-image: url('assets/MarkOjosPaCerrados.png'); }
+            97% { background-image: url('assets/MarkOjosCerrados.png'); }
+            98% { background-image: url('assets/MarkOjosPaCerrados.png'); }
+            99% { background-image: url('assets/MarkOjosPaAbiertos.png'); }
+        }
 
-        /* --- ANIMACIÓN 2: REACCIÓN AL CLIC --- */
-        
-        /* Efecto visual de salto */
+        /* --- REACCIÓN AL CLIC (SOLO CAMBIO DE SPRITE) --- */
         #mark.reaccion-activo {
-            transform: translateY(-20px) scale(1.05); /* Salta hacia arriba */
-            filter: brightness(1.1); /* Brilla un poco */
+            /* Eliminamos el salto y el brillo anteriores */
+            transform: translateY(20px); 
         }
-
-        /* Cambio de imagen por JS a SonriendoConMano o Sonriendo */
-        /* Lo controlaremos en la función de JS */
 
     </style>
 </head>
@@ -89,57 +62,50 @@
     </div>
 
     <script>
-        function parpadeoAleatorio() {
-    // Si no está reaccionando a un clic...
-    if (!markElement.classList.contains('reaccion-activo')) {
-        // Ejecutar la animación una vez de forma manual podría ser complejo con CSS,
-        // pero una forma fácil es cambiar la duración de la animación aleatoriamente:
-        const tiempoRandom = Math.floor(Math.random() * (8 - 4 + 1)) + 4; // Entre 4 y 8 segundos
-        markElement.style.animationDuration = `${tiempoRandom}s`;
-    }
-}
-
-// Revisar cada 5 segundos si cambiamos el ritmo
-setInterval(parpadeoAleatorio, 5000);
-
         const markElement = document.getElementById('mark');
-        let reaccionandoCount = 0; // Para encadenar reacciones si clicas rápido
+        let reaccionTimer = null;
+
+        function parpadeoAleatorio() {
+            if (!markElement.classList.contains('reaccion-activo')) {
+                const tiempoRandom = Math.floor(Math.random() * (8 - 4 + 1)) + 4; 
+                markElement.style.animationDuration = `${tiempoRandom}s`;
+            }
+        }
+
+        setInterval(parpadeoAleatorio, 5000);
 
         function clickMark() {
-            reaccionandoCount++;
-            
-            // 1. Efecto visual y cambio de pose
+            // 1. Limpiamos cualquier temporizador previo para evitar parpadeos ruidosos
+            clearTimeout(reaccionTimer);
+
+            // 2. Quitamos parpadeo y activamos estado de reacción
+            markElement.classList.remove('idle-parpadeo');
             markElement.classList.add('reaccion-activo');
-            
-            // Decidimos qué pose usar. Si clicas mucho, sale con la mano.
-            if (reaccionandoCount > 2) {
+
+            // 3. Lógica de probabilidad (10% de que salga con la mano)
+            const suerte = Math.random();
+            if (suerte < 0.10) {
                 markElement.style.backgroundImage = "url('assets/MarkSonriendoConMano.png')";
             } else {
                 markElement.style.backgroundImage = "url('assets/MarkSonriendo.png')";
             }
 
-            // 2. Quitamos la animación de parpadeo temporalmente
-            markElement.classList.remove('idle-parpadeo');
-
-            // 3. Volvemos a la normalidad después de 1 segundo
-            setTimeout(() => {
-                // Solo si no se ha clicado de nuevo mientras esperábamos
-                reaccionandoCount--;
-                if (reaccionandoCount === 0) {
-                    markElement.classList.remove('reaccion-activo');
-                    markElement.classList.add('idle-parpadeo');
-                    // IMPORTANTE: Limpiamos la pose de reacción para que el CSS vuelva a mandar
-                    markElement.style.backgroundImage = ''; 
-                }
-            }, 1000); 
+            // 4. Volver a la normalidad tras 1.2 segundos
+            reaccionTimer = setTimeout(() => {
+                markElement.classList.remove('reaccion-activo');
+                markElement.classList.add('idle-parpadeo');
+                markElement.style.backgroundImage = ''; 
+            }, 1200); 
         }
     </script>
+
+    <!-- Precarga de assets -->
     <div style="position: absolute; width: 0; height: 0; overflow: hidden; z-index: -9999; opacity: 0;">
-    <img src="assets/MarkOjosPaAbiertos.png">
-    <img src="assets/MarkOjosPaCerrados.png">
-    <img src="assets/MarkOjosCerrados.png">
-    <img src="assets/MarkSonriendo.png">
-    <img src="assets/MarkSonriendoConMano.png">
-</div>
+        <img src="assets/MarkOjosPaAbiertos.png">
+        <img src="assets/MarkOjosPaCerrados.png">
+        <img src="assets/MarkOjosCerrados.png">
+        <img src="assets/MarkSonriendo.png">
+        <img src="assets/MarkSonriendoConMano.png">
+    </div>
 </body>
 </html>
