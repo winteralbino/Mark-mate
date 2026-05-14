@@ -1,1 +1,6 @@
 node_modules 
+dist 
+.metadata 
+npm-debug.log* 
+.DS_Store 
+Thumbs.db 

@@ -1,10 +1,27 @@
 // main.js
-const { app, BrowserWindow, screen } = require('electron');
-const path = require('path');
+const { app, BrowserWindow, screen, Menu } = require('electron'); // Añade Menu aquíconst path = require('path');
+const path = require('node:path');
+
+const isFirstInstance = app.requestSingleInstanceLock();
+
+if (!isFirstInstance) {
+    app.quit(); // Si ya hay uno abierto, cierra el nuevo
+}
 
 function createWindow() {
     // Obtenemos el tamaño completo de la pantalla
     const { width, height } = screen.getPrimaryDisplay().workAreaSize;
+
+// Crear un menú para el clic derecho
+    const contextMenu = Menu.buildFromTemplate([
+        { label: 'Reiniciar', click: () => { win.reload(); } },
+        { type: 'separator' },
+        { label: 'Salir', click: () => { app.quit(); } }
+    ]);
+
+    win.webContents.on('context-menu', () => {
+        contextMenu.popup();
+    });
 
     // Supongamos que tu dibujo es de 256x256 px.
     // Ajustaremos la ventana para que sea ancha pero corta,
@@ -15,6 +32,7 @@ function createWindow() {
     const win = new BrowserWindow({
         width: winWidth,
         height: winHeight,
+        icon: path.join(__dirname, 'Icon.ico'),
         // x: ancho de pantalla menos ancho de ventana (pegado a la derecha)
         x: width - winWidth,
         // y: alto de pantalla menos alto de ventana (pegado abajo)

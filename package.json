@@ -1,12 +1,25 @@
 {
   "name": "Mark",
   "version": "1.0.0",
-  "description": "Mark viendome al alma",
+  "description": "Mascota de escritorio Mark",
   "main": "main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "dist": "electron-builder"
   },
   "devDependencies": {
-    "electron": "^30.0.0" 
+    "electron": "^30.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.mark.app",
+    "productName": "MarkPet",
+    "win": {
+      "target": "portable",
+      "icon": "Icon.ico"
+    },
+    "directories": {
+      "output": "dist"
+    }
   }
 }

@@ -1,0 +1,10 @@
+directories:
+  output: dist
+  buildResources: build
+appId: com.mark.app
+productName: MarkPet
+win:
+  target: portable
+  icon: Icon.ico
+files: []
+electronVersion: 30.5.1
