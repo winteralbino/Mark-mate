@@ -1,61 +1,117 @@
-// main.js
-const { app, BrowserWindow, screen, Menu } = require('electron'); // Añade Menu aquíconst path = require('path');
-const path = require('node:path');
+const { app, BrowserWindow, screen, Menu, Tray } = require('electron');
+const path = require('path');
 
+// Control de instancia única para evitar que Mark se duplique
 const isFirstInstance = app.requestSingleInstanceLock();
 
 if (!isFirstInstance) {
-    app.quit(); // Si ya hay uno abierto, cierra el nuevo
-}
-
-function createWindow() {
-    // Obtenemos el tamaño completo de la pantalla
-    const { width, height } = screen.getPrimaryDisplay().workAreaSize;
-
-// Crear un menú para el clic derecho
-    const contextMenu = Menu.buildFromTemplate([
-        { label: 'Reiniciar', click: () => { win.reload(); } },
-        { type: 'separator' },
-        { label: 'Salir', click: () => { app.quit(); } }
-    ]);
-
-    win.webContents.on('context-menu', () => {
-        contextMenu.popup();
-    });
-
-    // Supongamos que tu dibujo es de 256x256 px.
-    // Ajustaremos la ventana para que sea ancha pero corta,
-    // así dará la sensación de "sobresalir" del suelo.
-    const winWidth = 300; 
-    const winHeight = 300; 
-
-    const win = new BrowserWindow({
-        width: winWidth,
-        height: winHeight,
-        icon: path.join(__dirname, 'Icon.ico'),
-        // x: ancho de pantalla menos ancho de ventana (pegado a la derecha)
-        x: width - winWidth,
-        // y: alto de pantalla menos alto de ventana (pegado abajo)
-        // NOTA: Si usas Windows, prueba restar unos 5-10px extra 
-        // para que no choque con la barra de tareas.
-        y: height - winHeight,
-        transparent: true, // Fondo transparente
-        frame: false,      // Sin bordes de ventana
-        alwaysOnTop: true, // Siempre visible
-        resizable: false,
-        skipTaskbar: true, // No aparece en la barra de tareas
-        webPreferences: {
-            nodeIntegration: true,
-            contextIsolation: false
+    app.quit();
+} else {
+    app.on('second-instance', () => {
+        if (win) {
+            if (win.isMinimized()) win.restore();
+            win.focus();
+            win.show();
         }
     });
 
-    win.loadFile('index.html');
+    let win;
+    let tray = null;
+
+    function createWindow() {
+        const { width, height } = screen.getPrimaryDisplay().workAreaSize;
+
+        const winWidth = 512;
+        const winHeight = 512;
+
+        win = new BrowserWindow({
+            width: winWidth,
+            height: winHeight,
+            icon: path.join(__dirname, 'Icon.ico'),
+            x: width - winWidth,
+            y: height - winHeight,
+            transparent: true,
+            frame: false,
+            alwaysOnTop: true,
+            show: false,
+            resizable: false,
+            skipTaskbar: true,
+            webPreferences: {
+                nodeIntegration: true,
+                contextIsolation: false
+            }
+        });
+
+        // --- CONFIGURACIÓN DE AUTO-INICIO ---
+        // Se ejecuta solo cuando el programa está empaquetado como .exe
+        if (app.isPackaged) {
+            app.setLoginItemSettings({
+                openAtLogin: true,
+                path: app.getPath('exe'),
+                args: [] 
+            });
+        }
+
+        // --- CONFIGURACIÓN DEL TRAY (Icono en la barra de tareas/reloj) ---
+        tray = new Tray(path.join(__dirname, 'Icon.ico'));
+        const trayMenu = Menu.buildFromTemplate([
+            { label: 'Mostrar a Mark', click: () => { win.show(); } },
+            { label: 'Ocultar a Mark', click: () => { win.hide(); } },
+            { type: 'separator' },
+            { label: 'Salir', click: () => { app.quit(); } }
+        ]);
+        tray.setToolTip('Mascota de escritorio Mark');
+        tray.setContextMenu(trayMenu);
+
+        tray.on('double-click', () => {
+            win.isVisible() ? win.hide() : win.show();
+        });
+
+        // --- MENÚ CONTEXTUAL (Click derecho directo sobre Mark) ---
+        const contextMenu = Menu.buildFromTemplate([
+            { 
+                label: 'Posición', 
+                submenu: [
+                    { 
+                        label: 'Izquierda', 
+                        click: () => {
+                            const { height } = screen.getPrimaryDisplay().workAreaSize;
+                            win.setPosition(0, height - winHeight); 
+                        } 
+                    },
+                    { 
+                        label: 'Derecha', 
+                        click: () => {
+                            const { width, height } = screen.getPrimaryDisplay().workAreaSize;
+                            win.setPosition(width - winWidth, height - winHeight); 
+                        } 
+                    }
+                ] 
+            },
+            { type: 'separator' },
+            { label: 'Reiniciar a Mark', click: () => { win.reload(); } },
+            { type: 'separator' },
+            { label: 'Salir', click: () => { app.quit(); } }
+        ]);
+
+        win.webContents.on('context-menu', () => {
+            contextMenu.popup();
+        });
+
+        win.loadFile(path.join(__dirname, 'index.html'));
+
+        // --- POSICIONAMIENTO INICIAL ---
+        win.once('ready-to-show', () => {
+            const h = screen.getPrimaryDisplay().workAreaSize.height;
+            const w = screen.getPrimaryDisplay().workAreaSize.width;
+            win.setPosition(w - winWidth, h - winHeight);
+            win.show();
+        });
+    }
+
+    app.whenReady().then(createWindow);
+
+    app.on('window-all-closed', () => {
+        if (process.platform !== 'darwin') app.quit();
+    });
 }
-
-app.whenReady().then(createWindow);
-
-// Cerrar cuando todas las ventanas estén cerradas (común en Electron)
-app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') app.quit();
-});
