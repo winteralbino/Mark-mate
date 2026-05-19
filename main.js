@@ -1,7 +1,7 @@
 const { app, BrowserWindow, screen, Menu, Tray } = require('electron');
+const activeWin = require('active-win');
 const path = require('path');
 
-// Control de instancia única para evitar que Mark se duplique
 const isFirstInstance = app.requestSingleInstanceLock();
 
 if (!isFirstInstance) {
@@ -20,7 +20,6 @@ if (!isFirstInstance) {
 
     function createWindow() {
         const { width, height } = screen.getPrimaryDisplay().workAreaSize;
-
         const winWidth = 512;
         const winHeight = 512;
 
@@ -42,8 +41,6 @@ if (!isFirstInstance) {
             }
         });
 
-        // --- CONFIGURACIÓN DE AUTO-INICIO ---
-        // Se ejecuta solo cuando el programa está empaquetado como .exe
         if (app.isPackaged) {
             app.setLoginItemSettings({
                 openAtLogin: true,
@@ -52,7 +49,6 @@ if (!isFirstInstance) {
             });
         }
 
-        // --- CONFIGURACIÓN DEL TRAY (Icono en la barra de tareas/reloj) ---
         tray = new Tray(path.join(__dirname, 'Icon.ico'));
         const trayMenu = Menu.buildFromTemplate([
             { label: 'Mostrar a Mark', click: () => { win.show(); } },
@@ -67,25 +63,12 @@ if (!isFirstInstance) {
             win.isVisible() ? win.hide() : win.show();
         });
 
-        // --- MENÚ CONTEXTUAL (Click derecho directo sobre Mark) ---
         const contextMenu = Menu.buildFromTemplate([
             { 
                 label: 'Posición', 
                 submenu: [
-                    { 
-                        label: 'Izquierda', 
-                        click: () => {
-                            const { height } = screen.getPrimaryDisplay().workAreaSize;
-                            win.setPosition(0, height - winHeight); 
-                        } 
-                    },
-                    { 
-                        label: 'Derecha', 
-                        click: () => {
-                            const { width, height } = screen.getPrimaryDisplay().workAreaSize;
-                            win.setPosition(width - winWidth, height - winHeight); 
-                        } 
-                    }
+                    { label: 'Izquierda', click: () => { win.setPosition(0, screen.getPrimaryDisplay().workAreaSize.height - winHeight); } },
+                    { label: 'Derecha', click: () => { win.setPosition(screen.getPrimaryDisplay().workAreaSize.width - winWidth, screen.getPrimaryDisplay().workAreaSize.height - winHeight); } }
                 ] 
             },
             { type: 'separator' },
@@ -94,13 +77,23 @@ if (!isFirstInstance) {
             { label: 'Salir', click: () => { app.quit(); } }
         ]);
 
-        win.webContents.on('context-menu', () => {
-            contextMenu.popup();
-        });
+        win.webContents.on('context-menu', () => { contextMenu.popup(); });
 
         win.loadFile(path.join(__dirname, 'index.html'));
 
-        // --- POSICIONAMIENTO INICIAL ---
+        // --- DETECTOR DE YOUTUBE ---
+        setInterval(async () => {
+            try {
+                const result = await activeWin();
+                if (result && win) {
+                    const isYoutube = result.title.toLowerCase().includes('youtube');
+                    win.webContents.send('youtube-mode', isYoutube);
+                }
+            } catch (e) {
+                // Error silencioso si no hay ventana activa
+            }
+        }, 2000);
+
         win.once('ready-to-show', () => {
             const h = screen.getPrimaryDisplay().workAreaSize.height;
             const w = screen.getPrimaryDisplay().workAreaSize.width;
@@ -110,8 +103,5 @@ if (!isFirstInstance) {
     }
 
     app.whenReady().then(createWindow);
-
-    app.on('window-all-closed', () => {
-        if (process.platform !== 'darwin') app.quit();
-    });
+    app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 }

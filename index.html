@@ -2,87 +2,97 @@
 <html>
 <head>
     <style>
-body {
-    margin: 0;
-    padding: 0;
-    overflow: hidden;
-    background-color: transparent;
-}
+        body { margin: 0; padding: 0; overflow: hidden; background-color: transparent; }
 
-#mark-container {
-    /* Ajustamos el contenedor al tamaño exacto de Mark */
-    width: 512px; 
-    height: 512px;
-    display: flex;
-    align-items: flex-end; 
-    justify-content: center; 
-}
+        #mark-container {
+            width: 512px; height: 512px;
+            display: flex; align-items: flex-end; justify-content: center; 
+        }
 
-#mark {
-    width: 512px; 
-    height: 512px;
-    background-size: contain;
-    background-repeat: no-repeat;
-    background-position: bottom center;
-    cursor: pointer;
-    
-    /* MARK DEFAULT */
-    background-image: url('./assets/MarkOjosAbiertos.png');
+        #mark {
+            width: 512px; height: 512px;
+            background-size: contain; background-repeat: no-repeat;
+            background-position: bottom center; cursor: pointer;
+            background-image: url('./assets/MarkOjosAbiertos.png');
+            transform: translateY(0); transition: transform 0.2s ease-out;
+        }
 
-    /* QUITAMOS EL TRANSLATE DE 20PX que lo hundía */
-    transform: translateY(0); 
-    transition: transform 0.2s ease-out;
-}
+        /* ANIMACIÓN 1: Mirando al frente */
+        @keyframes parpadeoMark {
+            0%, 90%, 100% { background-image: url('./assets/MarkOjosAbiertos.png'); }
+            92% { background-image: url('./assets/MarkOjosPaAbiertos.png'); }
+            94% { background-image: url('./assets/MarkOjosPaCerrados.png'); }
+            96% { background-image: url('./assets/MarkOjosCerrados.png'); }
+            98% { background-image: url('./assets/MarkOjosPaCerrados.png'); }
+        }
 
-/* --- REACCIÓN AL CLIC --- */
-#mark.reaccion-activo {
-    /* Si quieres que haga algo al clicar, ponlo aquí, 
-       pero mantén el translate en 0 para que no se hunda */
-    transform: translateY(0); 
-}
+        /* ANIMACIÓN 2: Mirando a YouTube (Izquierda) */
+        @keyframes parpadeoMarkYT {
+            0%, 90%, 100% { background-image: url('./assets/MarkOjosAbiertosYT.png'); }
+            92% { background-image: url('./assets/MarkOjosPaAbiertosYT.png'); }
+            94% { background-image: url('./assets/MarkOjosPaCerradosYT.png'); }
+            96% { background-image: url('./assets/MarkOjosCerradosYT.png'); }
+            98% { background-image: url('./assets/MarkOjosPaCerradosYT.png'); }
+        }
 
-/* --- ANIMACIÓN DE PARPADEO --- */
-@keyframes parpadeoMark {
-    0%, 90%, 100% { background-image: url('./assets/MarkOjosAbiertos.png'); }
-    92% { background-image: url('./assets/MarkOjosPaAbiertos.png'); }
-    94% { background-image: url('./assets/MarkOjosPaCerrados.png'); }
-    96% { background-image: url('./assets/MarkOjosCerrados.png'); }
-    98% { background-image: url('./assets/MarkOjosPaCerrados.png'); }
-}
+        /* Clases de estado */
+        .idle-parpadeo { 
+            animation-name: parpadeoMark; 
+            animation-iteration-count: infinite;
+        }
 
-.idle-parpadeo {
-    animation: parpadeoMark 5s infinite;
-}
+        .modo-youtube { 
+            animation-name: parpadeoMarkYT !important; 
+            animation-iteration-count: infinite !important;
+        }
+
+        #mark.reaccion-activo { transform: translateY(0); animation: none !important; }
     </style>
 </head>
 <body>
-
     <div id="mark-container">
         <div id="mark" class="idle-parpadeo" onclick="clickMark()"></div>
     </div>
 
     <script>
+        const { ipcRenderer } = require('electron');
         const markElement = document.getElementById('mark');
         let reaccionTimer = null;
+        let viendoYoutube = false;
 
-        function parpadeoAleatorio() {
+        // Receptor de modo YouTube
+        ipcRenderer.on('youtube-mode', (event, isYoutube) => {
+            viendoYoutube = isYoutube;
+            
+            if (isYoutube) {
+                markElement.classList.remove('idle-parpadeo');
+                markElement.classList.add('modo-youtube');
+            } else {
+                markElement.classList.remove('modo-youtube');
+                markElement.classList.add('idle-parpadeo');
+            }
+            aplicarRitmoAleatorio();
+        });
+
+        function aplicarRitmoAleatorio() {
+            // Solo aplicamos ritmo si no está en medio de un clic
             if (!markElement.classList.contains('reaccion-activo')) {
                 const tiempoRandom = Math.floor(Math.random() * (8 - 4 + 1)) + 4; 
                 markElement.style.animationDuration = `${tiempoRandom}s`;
             }
         }
 
-        setInterval(parpadeoAleatorio, 5000);
+        // Intervalo único para el ritmo aleatorio (cada 5 segundos)
+        setInterval(aplicarRitmoAleatorio, 5000);
 
         function clickMark() {
-            // 1. Limpiamos cualquier temporizador previo para evitar parpadeos ruidosos
             clearTimeout(reaccionTimer);
-
-            // 2. Quitamos parpadeo y activamos estado de reacción
+            
+            // Quitamos estados de parpadeo para la reacción
             markElement.classList.remove('idle-parpadeo');
+            markElement.classList.remove('modo-youtube');
             markElement.classList.add('reaccion-activo');
 
-            // 3. Lógica de probabilidad (10% de que salga con la mano)
             const suerte = Math.random();
             if (suerte < 0.10) {
                 markElement.style.backgroundImage = "url('./assets/MarkSonriendoConMano.png')";
@@ -90,22 +100,35 @@ body {
                 markElement.style.backgroundImage = "url('./assets/MarkSonriendo.png')";
             }
 
-            // 4. Volver a la normalidad tras 1.2 segundos
             reaccionTimer = setTimeout(() => {
                 markElement.classList.remove('reaccion-activo');
-                markElement.classList.add('idle-parpadeo');
-                markElement.style.backgroundImage = ''; 
+                markElement.style.backgroundImage = ''; // Limpiar inline style para que mande el CSS
+                
+                // Restaurar el modo correcto según YouTube
+                if (viendoYoutube) {
+                    markElement.classList.add('modo-youtube');
+                } else {
+                    markElement.classList.add('idle-parpadeo');
+                }
+                aplicarRitmoAleatorio();
             }, 1200); 
         }
-    </script>
 
-    <!-- Precarga de assets -->
+        // Iniciar con un ritmo al cargar
+        aplicarRitmoAleatorio();
+    </script>
     <div style="position: absolute; width: 0; height: 0; overflow: hidden; z-index: -9999; opacity: 0;">
-        <img src="./assets/MarkOjosPaAbiertos.png">
-        <img src="./assets/MarkOjosPaCerrados.png">
-        <img src="./assets/MarkOjosCerrados.png">
-        <img src="./assets/MarkSonriendo.png">
-        <img src="./assets/MarkSonriendoConMano.png">
-    </div>
+    <img src="./assets/MarkOjosPaAbiertos.png">
+    <img src="./assets/MarkOjosPaCerrados.png">
+    <img src="./assets/MarkOjosCerrados.png">
+    
+    <img src="./assets/MarkOjosAbiertosYT.png">
+    <img src="./assets/MarkOjosPaAbiertosYT.png">
+    <img src="./assets/MarkOjosPaCerradosYT.png">
+    <img src="./assets/MarkOjosCerradosYT.png">
+    
+    <img src="./assets/MarkSonriendo.png">
+    <img src="./assets/MarkSonriendoConMano.png">
+</div>
 </body>
 </html>
